@@ -14,10 +14,8 @@
 //!
 //! // BitPatterns can be stored as normal variables
 //! let pattern_1 = bitpattern!("0b1_0..1");
-//! // Or even consts, although this requires specifying a type in the macro
-//! // due to limitations with generic const functions
-//! // The 0b prefix and _ separators are supported but never required
-//! const PATTERN_2: BitPattern<u8> = bitpattern!("00..1", u8);
+//! // Or even consts
+//! const PATTERN_2: BitPattern<u8> = bitpattern!("00..1");
 //!
 //! // Now, we can test these patterns against numbers
 //! assert!(pattern_1.is_match(19)); // 19 == 0b10011
@@ -36,8 +34,8 @@
 //! // Using an `as` conversion to compare a number to a pattern of a different
 //! // size/signedness always works, keeping in mind that bits not specified in
 //! // the pattern are considered wildcards
-//! let pattern_3: BitPattern<u8> = bitpattern!("1..01");
-//! let x: i16 = 0b0000_0010_1001_1001;
+//! let pattern_3 = bitpattern!("1..01", u8);
+//! let x: i16 = 0b0100_0010_1001_1001;
 //! assert!(pattern_3.is_match(x as u8));
 //! ```
 
@@ -120,7 +118,7 @@ impl<T: BitPatternType> BitPattern<T> {
     /// Match a number against the [`BitPattern`]
     ///
     /// See the [`BitPattern`] type documentation, the [`bitpattern!`] macro documentation,
-    /// or the [`bitpatterns`][crate] documentation for more details about constructing
+    /// or the [`bitpatterns`][crate] crate documentation for more details about constructing
     /// patterns and the corresponding matching rules. Also see the [`is_bit_match!`] macro
     /// documentation for details on matching against a temporary/single-use `BitPattern`.
     ///
@@ -169,6 +167,7 @@ impl<T: BitPatternType> BitPattern<T> {
 // We need specific impl's for the different types instead of being generic over a trait
 // so we can impl a const fn
 // TODO: Possibly can be improved if https://github.com/rust-lang/rfcs/pull/2632 is merged
+
 /// Implement `private::BitPatternType` and a non-generic `BitPattern::set_and_cleared_const` for an integer type
 macro_rules! impl_bit_pattern {
     ($($T:ident),+) => {$(
@@ -308,7 +307,9 @@ mod tests {
     #[test]
     fn is_bit_match_macro() {
         assert!(is_bit_match!("0b1..0", 0b1010));
+        assert!(is_bit_match!("0b1..0", 0b100001010i64));
         assert!(!is_bit_match!("0b1..0", 0b1001));
+        assert!(!is_bit_match!("0b1..0", 0b100001001i64));
     }
 }
 

@@ -1,22 +1,19 @@
 //! Macros for the BitPattern crate
 
-pub use bitpatterns_proc_macro::*;
+pub use bitpatterns_proc_macro::__bitpattern_inner;
 
-// We need to use a proc_macro for parsing to get strings parsed at compile time
-// But declarative macros are more expressive for handling these different cases,
-// so we split the macro code between a proc_macro for parsing and declarative
-// macros for plain syntax.
-
-/// Create a [`BitPattern`][crate::BitPattern] from a "literal" with wildcards.
+/// Create a `const` [`BitPattern`][crate::BitPattern] from a "literal" with wildcards.
 /// See the documentation for that type for more details.
 ///
 /// Specify the pattern as a binary number inside of a string, with optional
-/// 0b prefix and underscore separators. Dots `.` will be treated as ignored/
+/// `0b` prefix and underscore separators. Dots (`.`) will be treated as ignored/
 /// wildcard bits which can take any value. Unspecified bits (those in places
 /// beyond those in the string pattern) are always ignored.
 ///
-/// Optionally, a type can be provdied as a second parameter, which will also
-/// make the result a constant expression.
+/// The pattern will be given the smallest unsigned integer type capable of
+/// storing it. To override this behavior, specify a type manually as a second
+/// parameter. Explicitly specifying a type which is too small will cause
+/// a compilation failure.
 ///
 /// If not storing to a variable, prefer the [`is_bit_match!`] macro over
 /// `bitpattern!(...).is_match(...)`.
@@ -27,9 +24,14 @@ pub use bitpatterns_proc_macro::*;
 ///
 /// // Use the macro to define a BitPattern clearly
 /// let pattern_1 = bitpattern!("10..01");
-/// // And when specifying a type, the pattern can even be stored as a constant
+/// // The pattern can be stored as a constant too
 /// // Note the supported 0b prefix and _ separator
 /// let PATTERN_2: BitPattern<u8> = bitpattern!("0b00_01..");
+/// // We can also store the pattern as another type with explicit specification
+/// // This will have type BitPattern<i32>
+/// let pattern_3 = bitpattern!("0b00_01..", i32);
+/// // But specifying a type that is too small will fail
+/// // let pattern_4 = bitpattern!("0b000010001000", u8); // Doesn't compile
 ///
 /// // Now we can use the patterns to match numbers
 /// assert!(pattern_1.is_match(45)); // 45 == 0b101101
@@ -40,13 +42,16 @@ pub use bitpatterns_proc_macro::*;
 /// ```
 #[macro_export]
 macro_rules! bitpattern {
-    ($pattern:literal) => {{
-        let (set, cleared) = $crate::__extract_set_and_cleared!($pattern);
-        $crate::BitPattern::set_and_cleared(set, cleared)
-    }};
-    ($pattern:literal, $type_name:ident) => {{
-        let (set, cleared) = $crate::__extract_set_and_cleared!($pattern);
-        $crate::BitPattern::<$type_name>::set_and_cleared_const(set, cleared)
+    // We need to use a proc_macro for parsing to get strings parsed at compile time
+    // But declarative macros are more expressive for handling these different cases,
+    // so we split the macro code between a proc_macro for parsing and declarative
+    // macros for plain syntax.
+    // We also pass $crate to the proc_macro as a hack because procedural macros can't
+    // construct this identifier themselves but can receive it from a declarative macro.
+    // This allows us to get the behavior of $crate from the procedural macro
+
+    ($pattern:literal $(, $type_name:ident)?) => {{
+        $crate::__bitpattern_inner!($crate $pattern $($type_name)?)
     }};
 }
 
@@ -58,7 +63,9 @@ macro_rules! bitpattern {
 /// compared will determine the type of the pattern that is created.
 ///
 /// This uses a temporary [`BitPattern`][crate::BitPattern] to check a number against,
-/// see the documentation on that type for more details about it.
+/// see the documentation on that type for more details about it. This macro will handle
+/// type issues for you; the argument will be extended/shrunk to the minimal size
+/// needed for the pattern.
 ///
 /// # Examples
 /// ```rust
@@ -78,9 +85,9 @@ macro_rules! bitpattern {
 #[macro_export]
 macro_rules! is_bit_match {
     ($pattern:literal, $other:ident) => {
-        bitpattern!($pattern).is_match($other)
+        bitpattern!($pattern).is_match($other as _)
     };
     ($pattern:literal, $other:expr) => {
-        bitpattern!($pattern).is_match($other)
+        bitpattern!($pattern).is_match(($other) as _)
     };
 }
