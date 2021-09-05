@@ -84,7 +84,7 @@ fn __bitpattern_testable(input: TokenStream) -> Result<TokenStream, String> {
 
     let type_suffix = match declared_type {
         None => format!("u{}", size),
-        Some(t) => match get_primitive_int_size(&t) {
+        Some(t) => match extract_int_type_size(&t) {
             Some(declared_size) if declared_size >= size => t,
             _ => {
                 return Err(type_size_invalid_msg(size));
@@ -112,7 +112,7 @@ fn __bitpattern_testable(input: TokenStream) -> Result<TokenStream, String> {
     .collect())
 }
 
-/// Extract the stream from a TokenTree group
+/// Flatten a `TokenStream` which might have `TokenTree::Group`s into a flat `Vec` of `TokenTree`s
 fn flatten_tokenstream(input: TokenStream) -> Vec<TokenTree> {
     fn flatten_tokenstream_inner(input: TokenStream, mut output: Vec<TokenTree>) -> Vec<TokenTree> {
         for token in input {
@@ -148,7 +148,7 @@ where
 }
 
 /// Get the size of a primitive int type given the name, or return `None` if the input isn't of the form `[ui](\d+)`
-fn get_primitive_int_size(type_name: &str) -> Option<usize> {
+fn extract_int_type_size(type_name: &str) -> Option<usize> {
     usize::from_str(type_name.strip_prefix(&['u', 'i'][..])?).ok()
 }
 

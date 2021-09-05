@@ -39,9 +39,10 @@
 //! assert!(pattern_3.is_match(x as u8));
 //! ```
 
+#![no_std]
 #![deny(missing_docs)]
 
-use std::{fmt::Display, mem::size_of};
+use core::{fmt::Display, mem::size_of};
 
 mod macros;
 pub use macros::*;
@@ -49,7 +50,7 @@ pub use macros::*;
 /// Used to provide a namespace for the private `BitPatternType`,
 /// so the types which implement the public `BitPatternType` can't be extended later
 mod private {
-    use std::ops::{BitAnd, BitOr, Not, Shl};
+    use core::ops::{BitAnd, BitOr, Not, Shl};
 
     /// Sealed trait which defines which types can be used in `BitPattern`s  
     /// This can't be implemented outside of this crate, so it "seals off"
@@ -204,9 +205,9 @@ impl_bit_pattern! {
 }
 
 impl<T: BitPatternType> Display for BitPattern<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // 8 bits per byte, and we are only dealing with integer primitives
-        let num_bits: usize = size_of::<T>() * 8;
+        let num_bits = size_of::<T>() * 8;
         let set = self.set;
         let cleared = self.set_or_cleared & !self.set;
         // Had to do this generically somehow, this is the only way to do it with infallible
@@ -214,19 +215,24 @@ impl<T: BitPatternType> Display for BitPattern<T> {
         let one: T = true.into();
         let zero: T = false.into();
 
-        let formatted_pattern = (0..num_bits)
-            .map(|i| {
-                let pattern = BitPattern::<T>::set_and_cleared(one << num_bits - i - 1, zero);
-                if pattern.is_match(set) {
-                    '1'
-                } else if pattern.is_match(cleared) {
-                    '0'
-                } else {
-                    '.'
-                }
-            })
-            .collect::<String>();
-        let formatted_pattern = formatted_pattern.trim_start_matches('.');
+        // We should be making this buffer more appropriately sized but const generics aren't there yet
+        // Using a buffer to avoid bringing in std just for this case, especially since this *should*
+        // let us use the properly sized buffer in each case
+        let mut formatted_pattern_buf = [0u8; 128];
+        for i in 0..num_bits {
+            let pattern = BitPattern::<T>::set_and_cleared(one << num_bits - i - 1, zero);
+            let c = if pattern.is_match(set) {
+                b'1'
+            } else if pattern.is_match(cleared) {
+                b'0'
+            } else {
+                b'.'
+            };
+            formatted_pattern_buf[i] = c;
+        }
+        let formatted_pattern = core::str::from_utf8(&formatted_pattern_buf[..num_bits])
+            .unwrap()
+            .trim_start_matches('.');
 
         write!(
             f,
@@ -249,8 +255,8 @@ mod tests {
 
     #[test]
     fn bitpattern_macro() {
-        // Just making sure this is still const compatible
-        const PATTERN_1: BitPattern<u8> = bitpattern!("0b10..", u8);
+        // Just making sure this is still const compatible and allows non-minimal explicit types
+        const PATTERN_1: BitPattern<i16> = bitpattern!("0b10..", i16);
         assert_eq_display(PATTERN_1, BitPattern::set_and_cleared(0b1000, 0b0100));
         // And testing the other form too
         let pattern_2 = bitpattern!("0b.10.");
@@ -316,6 +322,10 @@ mod tests {
 #[cfg(test)]
 mod fmt_tests {
     use super::*;
+
+    // Only bringing these in for the tests here, consumers won't get std in their build
+    extern crate std;
+    use std::string::ToString;
 
     #[test]
     fn normal_patterns() {
