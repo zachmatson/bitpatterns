@@ -1,4 +1,4 @@
-//! Procedural macro for the bitpatterns crate to handle string parsing to numeric tokens at compile time
+//! Procedural macro crate for the bitpatterns crate to handle string parsing to numeric tokens at compile time
 
 #![doc(hidden)]
 
@@ -17,6 +17,9 @@ use std::str::FromStr;
 #[doc(hidden)]
 #[proc_macro]
 pub fn __bitpattern_inner(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    // We will be using proc_macro2 imports for tests or proc_macro for normal operation
+    // The .into() conversions are therefore redundant outside of tests, but harmless
+    #[allow(clippy::useless_conversion)]
     match __bitpattern_testable(input.into()) {
         Ok(result) => result.into(),
         Err(msg) => format!("compile_error!(\"{}\")", msg).parse().unwrap(),
@@ -177,31 +180,32 @@ mod tests {
     // The correctness of the output is tested in the main bitpatterns crate,
     // but cases where the input would fail compilation have to be tested here.
 
+    use std::panic;
+
     use quote::quote;
 
     use crate::__bitpattern_testable;
-    use MacroStatus::*;
-    #[derive(Debug)]
+
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     enum MacroStatus {
         Panic,
         Failure,
         Success,
     }
+    use MacroStatus::*;
 
     /// Test expected macro status against __bitpattern_testable result for some set of tokens
     macro_rules! bp_macro_test {
         ($expected_status:ident, $($test:tt)+) => {
-            let macro_result = std::panic::catch_unwind(|| __bitpattern_testable(quote!($($test)+)));
+            let macro_result = panic::catch_unwind(|| __bitpattern_testable(quote!($($test)+)));
+
             let actual_status = match macro_result {
                 Err(_) => Panic,
                 Ok(Err(_)) => Failure,
                 Ok(Ok(_)) => Success,
             };
             assert!(
-                match actual_status {
-                    $expected_status => true,
-                    _ => false,
-                },
+                actual_status == $expected_status,
                 "__bitpattern_testable test failed: expected status {} for input `{}`. Result was `{:?}` with status {:?}.",
                 stringify!($expected_status),
                 stringify!($($test)+),

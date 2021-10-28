@@ -84,9 +84,6 @@ macro_rules! bitpattern {
 /// ```
 #[macro_export]
 macro_rules! is_bit_match {
-    ($pattern:literal, $other:ident) => {
-        bitpattern!($pattern).is_match($other as _)
-    };
     ($pattern:literal, $other:expr) => {
         bitpattern!($pattern).is_match(($other) as _)
     };

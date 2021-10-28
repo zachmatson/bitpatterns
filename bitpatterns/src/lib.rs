@@ -2,7 +2,8 @@
 //!
 //! Provides functionality to compare integers against patterns of bits which include wildcards.
 //! Patterns can be declared with convenient macros, the generated code is incredibly small and
-//! efficient, and the crate has *zero* dependencies on external crates.
+//! efficient, `no_std`, and the crate depends only on its `bitpatterns-proc-macro`, which itself
+//! has *zero* dependencies.
 //!
 //! Bitwise patterns are stored in the [`BitPattern`] type, which provides the [`is_match`][BitPattern::is_match] method to
 //! test for matches. The easiest way to create one of these patterns is with the [`bitpattern!`] macro,
@@ -42,7 +43,8 @@
 #![no_std]
 #![deny(missing_docs)]
 
-use core::{fmt::Display, mem::size_of};
+use core::fmt::{Debug, Display, Formatter};
+use core::mem::size_of;
 
 mod macros;
 pub use macros::*;
@@ -109,7 +111,7 @@ impl<T: private::BitPatternType> BitPatternType for T {}
 /// assert!(!pattern_1.is_match(2)); // 2 == 0b0010
 /// assert!(PATTERN_2.is_match(2));
 /// ```
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct BitPattern<T: BitPatternType> {
     set: T,
     set_or_cleared: T,
@@ -163,6 +165,14 @@ impl<T: BitPatternType> BitPattern<T> {
             set_or_cleared: set | cleared,
         }
     }
+
+    fn set(&self) -> T {
+        self.set
+    }
+
+    fn cleared(&self) -> T {
+        self.set_or_cleared & !self.set
+    }
 }
 
 // We need specific impl's for the different types instead of being generic over a trait
@@ -204,31 +214,31 @@ impl_bit_pattern! {
     i8, i16, i32, i64, i128
 }
 
-impl<T: BitPatternType> Display for BitPattern<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl<T: BitPatternType> Debug for BitPattern<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         // 8 bits per byte, and we are only dealing with integer primitives
         let num_bits = size_of::<T>() * 8;
-        let set = self.set;
-        let cleared = self.set_or_cleared & !self.set;
+        let set = self.set();
+        let cleared = self.cleared();
         // Had to do this generically somehow, this is the only way to do it with infallible
         // conversions for every integer type
         let one: T = true.into();
         let zero: T = false.into();
 
-        // We should be making this buffer more appropriately sized but const generics aren't there yet
-        // Using a buffer to avoid bringing in std just for this case, especially since this *should*
-        // let us use the properly sized buffer in each case
+        // Could probably use appropriate sized buffer for each type now, but only with pretty
+        // recent const generics, so we will do this for now and revisit later
         let mut formatted_pattern_buf = [0u8; 128];
-        for i in 0..num_bits {
-            let pattern = BitPattern::<T>::set_and_cleared(one << num_bits - i - 1, zero);
-            let c = if pattern.is_match(set) {
+
+        // Manual range instead of enumerate because we don't want to go over the whole buffer
+        for (i, c) in (0..num_bits).zip(formatted_pattern_buf.iter_mut()) {
+            let pattern = BitPattern::<T>::set_and_cleared(one << (num_bits - i - 1), zero);
+            *c = if pattern.is_match(set) {
                 b'1'
             } else if pattern.is_match(cleared) {
                 b'0'
             } else {
                 b'.'
             };
-            formatted_pattern_buf[i] = c;
         }
         let formatted_pattern = core::str::from_utf8(&formatted_pattern_buf[..num_bits])
             .unwrap()
@@ -245,22 +255,24 @@ impl<T: BitPatternType> Display for BitPattern<T> {
     }
 }
 
+impl<T: BitPatternType> Display for BitPattern<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        <Self as Debug>::fmt(self, f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn assert_eq_display<T: Eq + Display>(left: T, right: T) {
-        assert!(left == right, "Expected {} to equal {}", left, right);
-    }
 
     #[test]
     fn bitpattern_macro() {
         // Just making sure this is still const compatible and allows non-minimal explicit types
         const PATTERN_1: BitPattern<i16> = bitpattern!("0b10..", i16);
-        assert_eq_display(PATTERN_1, BitPattern::set_and_cleared(0b1000, 0b0100));
+        assert_eq!(PATTERN_1, BitPattern::set_and_cleared(0b1000, 0b0100));
         // And testing the other form too
         let pattern_2 = bitpattern!("0b.10.");
-        assert_eq_display(pattern_2, BitPattern::set_and_cleared(0b0100, 0b0010));
+        assert_eq!(pattern_2, BitPattern::set_and_cleared(0b0100, 0b0010));
     }
 
     #[test]
@@ -314,8 +326,11 @@ mod tests {
     fn is_bit_match_macro() {
         assert!(is_bit_match!("0b1..0", 0b1010));
         assert!(is_bit_match!("0b1..0", 0b100001010i64));
+        let x: i64 = 0b100001010;
+        assert!(is_bit_match!("0b1..0", x));
         assert!(!is_bit_match!("0b1..0", 0b1001));
         assert!(!is_bit_match!("0b1..0", 0b100001001i64));
+        assert!(is_bit_match!("0b1", 2u64 + 1u64));
     }
 }
 
