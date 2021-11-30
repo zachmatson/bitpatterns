@@ -2,9 +2,15 @@
 name = "bitpatterns-proc-macro"
 version = "0.1.0"
 edition = "2018"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/zachmatson/bitpatterns/bitpatterns-proc-macro/"
+homepage = "https://github.com/zachmatson/bitpatterns/"
+documentation = "https://docs.rs/bitpatterns"
+readme = "README.md"
 
 [lib]
 proc-macro = true
+path = "src/lib.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
