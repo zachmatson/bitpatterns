@@ -7,6 +7,7 @@ repository = "https://github.com/zachmatson/bitpatterns/bitpatterns-proc-macro/"
 homepage = "https://github.com/zachmatson/bitpatterns/"
 documentation = "https://docs.rs/bitpatterns"
 readme = "README.md"
+description = "Procedural macros used by the bitpatterns crate"
 
 [lib]
 proc-macro = true

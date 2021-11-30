@@ -9,6 +9,7 @@ documentation = "https://docs.rs/bitpatterns"
 readme = "README.md"
 keywords = ["bitwise", "patterns", "bits", "macro"]
 categories = ["no-std"]
+description = "Simple bitwise pattern testing for integers"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
