@@ -6,7 +6,9 @@
 ![Crates.io](https://img.shields.io/crates/l/bitpatterns)
 [![Crates.io](https://img.shields.io/crates/d/bitpatterns)](https://crates.io/crates/bitpatterns)
 
-Procedural macro crate for the bitpatterns crate to handle string parsing to numeric tokens at compile time
+Procedural macro crate for the bitpatterns crate to handle compile-time parsing
+
+If you are trying to use this library, you are probably looking for the [bitpatterns](https://github.com/zachmatson/bitpatterns) crate.
 
 ## License
 

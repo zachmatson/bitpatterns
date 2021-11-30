@@ -7,6 +7,8 @@ repository = "https://github.com/zachmatson/bitpatterns/bitpatterns/"
 homepage = "https://github.com/zachmatson/bitpatterns/"
 documentation = "https://docs.rs/bitpatterns"
 readme = "README.md"
+keywords = ["bitwise", "patterns", "bits", "macro"]
+categories = ["no-std"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
